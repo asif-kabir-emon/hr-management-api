@@ -1,37 +1,33 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
-import { DepartmentStatus } from '../entities/department.entity';
+import { BranchDepartmentStatus } from '../entities/branch-department.entity';
 
-export class CreateDepartmentDto {
+export class AssignBranchDepartmentDto {
   @ApiProperty()
   @IsUUID()
-  companyId: string;
-
-  @ApiProperty()
-  @IsString()
-  name: string;
+  departmentId: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  code?: string;
+  localName?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  description?: string;
+  floorNo?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUUID()
-  parentDepartmentId?: string;
+  @IsString()
+  roomNo?: string;
 
   @ApiPropertyOptional({
-    enum: [DepartmentStatus.Inactive, DepartmentStatus.Active],
+    enum: [BranchDepartmentStatus.Inactive, BranchDepartmentStatus.Active],
     description: '0 = inactive, 1 = active',
-    default: DepartmentStatus.Active,
+    default: BranchDepartmentStatus.Active,
   })
   @IsOptional()
-  @IsEnum(DepartmentStatus)
-  status?: DepartmentStatus;
+  @IsEnum(BranchDepartmentStatus)
+  status?: BranchDepartmentStatus;
 }

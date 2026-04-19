@@ -58,11 +58,35 @@ export class LeaveService {
       throw new NotFoundException('Leave type not found');
     }
 
-    await this.leaveTypeRepository.remove(leaveType);
+    await this.assertLeaveTypeCanBeDeleted(leaveType.id);
+    await this.leaveTypeRepository.softRemove(leaveType);
 
     return {
       message: 'Leave type deleted successfully',
     };
+  }
+
+  private async assertLeaveTypeCanBeDeleted(leaveTypeId: string) {
+    const [leaveBalancesCount, leaveRequestsCount] = await Promise.all([
+      this.leaveBalanceRepository.count({
+        where: { leaveType: { id: leaveTypeId } },
+      }),
+      this.leaveRepository.count({
+        where: { leaveType: { id: leaveTypeId } },
+      }),
+    ]);
+    const blockers = [
+      leaveBalancesCount ? `${leaveBalancesCount} leave balance(s)` : null,
+      leaveRequestsCount ? `${leaveRequestsCount} leave request(s)` : null,
+    ].filter(Boolean);
+
+    if (blockers.length > 0) {
+      throw new BadRequestException(
+        `Leave type cannot be deleted because it is used by ${blockers.join(
+          ', ',
+        )}. Keep it inactive instead.`,
+      );
+    }
   }
 
   async setLeaveBalance(setLeaveBalanceDto: SetLeaveBalanceDto) {

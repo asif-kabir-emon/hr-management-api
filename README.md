@@ -13,6 +13,7 @@ Production-oriented NestJS backend for a modern HR management platform.
 
 - API reference: [`docs/api-reference.md`](./docs/api-reference.md)
 - Auth internals: [`docs/auth-service.md`](./docs/auth-service.md)
+- Frontend organization guide: [`docs/frontend-organization-guide.md`](./docs/frontend-organization-guide.md)
 - Docs index: [`docs/README.md`](./docs/README.md)
 
 ## Initial domain modules

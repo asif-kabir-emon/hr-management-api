@@ -1,7 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
+import { BranchStatus, BranchType } from '../entities/branch.entity';
 
 export class CreateBranchDto {
+  @ApiProperty()
+  @IsUUID()
+  companyId: string;
+
   @ApiProperty()
   @IsString()
   name: string;
@@ -20,6 +33,39 @@ export class CreateBranchDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiPropertyOptional({ enum: BranchType, default: BranchType.Office })
+  @IsOptional()
+  @IsEnum(BranchType)
+  branchType?: BranchType;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  managerEmployeeId?: string;
+
+  @ApiPropertyOptional({
+    enum: [
+      BranchStatus.Inactive,
+      BranchStatus.Active,
+      BranchStatus.Closed,
+    ],
+    description: '0 = inactive, 1 = active, 2 = closed',
+    default: BranchStatus.Active,
+  })
+  @IsOptional()
+  @IsEnum(BranchStatus)
+  status?: BranchStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  openedOn?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  closedOn?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

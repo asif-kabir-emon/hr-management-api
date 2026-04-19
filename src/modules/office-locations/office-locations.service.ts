@@ -1,7 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AttendanceLocationDto } from '../attendance/dto/attendance-location.dto';
+import { AttendanceRecord } from '../attendance/entities/attendance.entity';
+import { Branch } from '../branches/entities/branch.entity';
+import { BranchNetwork } from '../branches/entities/branch-network.entity';
 import { CreateOfficeLocationDto } from './dto/create-office-location.dto';
 import { UpdateOfficeLocationDto } from './dto/update-office-location.dto';
 import { OfficeLocation } from './entities/office-location.entity';
@@ -18,13 +25,23 @@ export class OfficeLocationsService {
   constructor(
     @InjectRepository(OfficeLocation)
     private readonly officeLocationRepository: Repository<OfficeLocation>,
+    @InjectRepository(Branch)
+    private readonly branchRepository: Repository<Branch>,
+    @InjectRepository(BranchNetwork)
+    private readonly branchNetworkRepository: Repository<BranchNetwork>,
+    @InjectRepository(AttendanceRecord)
+    private readonly attendanceRecordRepository: Repository<AttendanceRecord>,
   ) {}
 
-  create(createOfficeLocationDto: CreateOfficeLocationDto) {
+  async create(createOfficeLocationDto: CreateOfficeLocationDto) {
+    const { branchId, ...officeLocationPayload } = createOfficeLocationDto;
+    const branch = branchId ? await this.findBranch(branchId) : undefined;
     const officeLocation = this.officeLocationRepository.create({
-      ...createOfficeLocationDto,
+      ...officeLocationPayload,
+      branch,
       trustedIps: createOfficeLocationDto.trustedIps ?? [],
     });
+
     return this.officeLocationRepository.save(officeLocation);
   }
 
@@ -48,20 +65,46 @@ export class OfficeLocationsService {
 
   async update(id: string, updateOfficeLocationDto: UpdateOfficeLocationDto) {
     const officeLocation = await this.findOne(id);
+    const { branchId, ...officeLocationPayload } = updateOfficeLocationDto;
+
+    if (branchId) {
+      officeLocation.branch = await this.findBranch(branchId);
+    }
+
     Object.assign(officeLocation, {
-      ...updateOfficeLocationDto,
+      ...officeLocationPayload,
       trustedIps: updateOfficeLocationDto.trustedIps ?? officeLocation.trustedIps,
     });
+
     return this.officeLocationRepository.save(officeLocation);
   }
 
   async remove(id: string) {
     const officeLocation = await this.findOne(id);
-    await this.officeLocationRepository.remove(officeLocation);
+    await this.assertOfficeLocationCanBeDeleted(officeLocation.id);
+    await this.officeLocationRepository.softRemove(officeLocation);
 
     return {
       message: 'Office location deleted successfully',
     };
+  }
+
+  private async assertOfficeLocationCanBeDeleted(officeLocationId: string) {
+    const attendanceRecordsCount = await this.attendanceRecordRepository
+      .createQueryBuilder('attendance')
+      .where('attendance.checkInOfficeLocationId = :officeLocationId', {
+        officeLocationId,
+      })
+      .orWhere('attendance.checkOutOfficeLocationId = :officeLocationId', {
+        officeLocationId,
+      })
+      .getCount();
+
+    if (attendanceRecordsCount > 0) {
+      throw new BadRequestException(
+        `Office location cannot be deleted because it is used by ${attendanceRecordsCount} attendance record(s). Keep it inactive instead.`,
+      );
+    }
   }
 
   async findMatchingOffice(
@@ -81,12 +124,31 @@ export class OfficeLocationsService {
 
     if (normalizedIp) {
       const ipMatchedOfficeLocation = officeLocations.find((officeLocation) =>
-        (officeLocation.trustedIps ?? []).includes(normalizedIp),
+        (officeLocation.trustedIps ?? [])
+          .filter(Boolean)
+          .includes(normalizedIp),
       );
 
       if (ipMatchedOfficeLocation) {
         return {
           officeLocation: ipMatchedOfficeLocation,
+          distanceMeters: 0,
+          isInside: true,
+          matchedBy: 'ip',
+        };
+      }
+
+      const branchNetwork = await this.findMatchingBranchNetwork(normalizedIp);
+      const branchOfficeLocation = branchNetwork?.branch
+        ? officeLocations.find(
+            (officeLocation) =>
+              officeLocation.branch?.id === branchNetwork.branch.id,
+          )
+        : undefined;
+
+      if (branchOfficeLocation) {
+        return {
+          officeLocation: branchOfficeLocation,
           distanceMeters: 0,
           isInside: true,
           matchedBy: 'ip',
@@ -120,6 +182,74 @@ export class OfficeLocationsService {
     }
 
     return nearestMatch;
+  }
+
+  private async findBranch(branchId: string) {
+    const branch = await this.branchRepository.findOne({ where: { id: branchId } });
+
+    if (!branch) {
+      throw new NotFoundException('Branch not found');
+    }
+
+    return branch;
+  }
+
+  private async findMatchingBranchNetwork(ip: string) {
+    const branchNetworks = await this.branchNetworkRepository.find({
+      where: { isActive: true },
+      relations: { branch: true },
+    });
+
+    return branchNetworks.find((network) => {
+      if (network.ipAddress?.trim() === ip) {
+        return true;
+      }
+
+      return network.cidr ? this.isIpv4InsideCidr(ip, network.cidr) : false;
+    });
+  }
+
+  private isIpv4InsideCidr(ip: string, cidr: string) {
+    const [rangeIp, prefixLengthText] = cidr.split('/');
+    const prefixLength = Number(prefixLengthText);
+
+    if (!rangeIp || !Number.isInteger(prefixLength)) {
+      return false;
+    }
+
+    const ipNumber = this.ipv4ToNumber(ip);
+    const rangeNumber = this.ipv4ToNumber(rangeIp);
+
+    if (ipNumber === null || rangeNumber === null || prefixLength < 0) {
+      return false;
+    }
+
+    if (prefixLength > 32) {
+      return false;
+    }
+
+    const mask = prefixLength === 0 ? 0 : 0xffffffff << (32 - prefixLength);
+
+    return (ipNumber & mask) === (rangeNumber & mask);
+  }
+
+  private ipv4ToNumber(ip: string) {
+    const parts = ip.split('.').map(Number);
+
+    if (
+      parts.length !== 4 ||
+      parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
+    ) {
+      return null;
+    }
+
+    return (
+      ((parts[0] << 24) |
+        (parts[1] << 16) |
+        (parts[2] << 8) |
+        parts[3]) >>>
+      0
+    );
   }
 
   private calculateDistanceInMeters(

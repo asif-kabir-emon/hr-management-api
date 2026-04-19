@@ -1,10 +1,20 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../common/constants/permissions';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CreateDepartmentDto } from './dto/create-department.dto';
+import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { DepartmentsService } from './departments.service';
 
 @ApiTags('departments')
@@ -33,5 +43,20 @@ export class DepartmentsController {
   @RequirePermissions(Permissions.DepartmentCreate)
   create(@Body() createDepartmentDto: CreateDepartmentDto) {
     return this.departmentsService.create(createDepartmentDto);
+  }
+
+  @Patch(':id')
+  @RequirePermissions(Permissions.DepartmentUpdate)
+  update(
+    @Param('id') id: string,
+    @Body() updateDepartmentDto: UpdateDepartmentDto,
+  ) {
+    return this.departmentsService.update(id, updateDepartmentDto);
+  }
+
+  @Delete(':id')
+  @RequirePermissions(Permissions.DepartmentDelete)
+  remove(@Param('id') id: string) {
+    return this.departmentsService.remove(id);
   }
 }

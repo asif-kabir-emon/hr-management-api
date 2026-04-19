@@ -1,7 +1,13 @@
 export const Permissions = {
   All: '*',
+  CompanyRead: 'company:read',
+  CompanyCreate: 'company:create',
+  CompanyUpdate: 'company:update',
+  CompanyDelete: 'company:delete',
   DepartmentRead: 'department:read',
   DepartmentCreate: 'department:create',
+  DepartmentUpdate: 'department:update',
+  DepartmentDelete: 'department:delete',
   BranchRead: 'branch:read',
   BranchCreate: 'branch:create',
   BranchUpdate: 'branch:update',

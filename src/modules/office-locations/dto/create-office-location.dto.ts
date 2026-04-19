@@ -9,6 +9,7 @@ import {
   IsLongitude,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
 } from 'class-validator';
 
@@ -16,6 +17,16 @@ export class CreateOfficeLocationDto {
   @ApiProperty()
   @IsString()
   name: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  branchId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locationLabel?: string;
 
   @ApiProperty()
   @IsLatitude()
@@ -29,6 +40,11 @@ export class CreateOfficeLocationDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  timezone?: string;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()

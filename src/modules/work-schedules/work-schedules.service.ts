@@ -73,11 +73,24 @@ export class WorkSchedulesService {
 
   async remove(id: string) {
     const workSchedule = await this.findOne(id);
-    await this.workScheduleRepository.remove(workSchedule);
+    await this.assertWorkScheduleCanBeDeleted(workSchedule.id);
+    await this.workScheduleRepository.softRemove(workSchedule);
 
     return {
       message: 'Work schedule deleted successfully',
     };
+  }
+
+  private async assertWorkScheduleCanBeDeleted(workScheduleId: string) {
+    const assignmentsCount = await this.employeeWorkScheduleRepository.count({
+      where: { workSchedule: { id: workScheduleId } },
+    });
+
+    if (assignmentsCount > 0) {
+      throw new BadRequestException(
+        `Work schedule cannot be deleted because it is used by ${assignmentsCount} employee schedule assignment(s). End or reassign schedules first.`,
+      );
+    }
   }
 
   async assignToEmployee(assignWorkScheduleDto: AssignWorkScheduleDto) {

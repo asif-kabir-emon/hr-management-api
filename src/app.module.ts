@@ -8,10 +8,12 @@ import { AppService } from './app.service';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CompaniesModule } from './modules/companies/companies.module';
 import configuration from './config/configuration';
 import { envValidationSchema } from './config/env.validation';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { BranchesModule } from './modules/branches/branches.module';
+import { CountriesModule } from './modules/countries/countries.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { EmployeesModule } from './modules/employees/employees.module';
@@ -51,6 +53,8 @@ import { WorkflowsModule } from './modules/workflows/workflows.module';
       }),
     }),
     AuthModule,
+    CompaniesModule,
+    CountriesModule,
     BranchesModule,
     DepartmentsModule,
     DashboardModule,

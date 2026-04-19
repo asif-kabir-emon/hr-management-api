@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AttendanceRecord } from '../attendance/entities/attendance.entity';
 import { DepartmentsService } from '../departments/departments.service';
 import { EmployeesService } from '../employees/employees.service';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
@@ -16,6 +17,8 @@ export class HolidaysService {
   constructor(
     @InjectRepository(Holiday)
     private readonly holidayRepository: Repository<Holiday>,
+    @InjectRepository(AttendanceRecord)
+    private readonly attendanceRecordRepository: Repository<AttendanceRecord>,
     private readonly departmentsService: DepartmentsService,
     private readonly employeesService: EmployeesService,
   ) {}
@@ -49,11 +52,27 @@ export class HolidaysService {
 
   async remove(id: string) {
     const holiday = await this.findOne(id);
-    await this.holidayRepository.remove(holiday);
+    await this.assertHolidayCanBeDeleted(holiday.id);
+    await this.holidayRepository.softRemove(holiday);
 
     return {
       message: 'Holiday deleted successfully',
     };
+  }
+
+  private async assertHolidayCanBeDeleted(holidayId: string) {
+    const attendanceRecordsCount = await this.attendanceRecordRepository
+      .createQueryBuilder('attendance')
+      .where("attendance.dayResolution -> 'holiday' ->> 'id' = :holidayId", {
+        holidayId,
+      })
+      .getCount();
+
+    if (attendanceRecordsCount > 0) {
+      throw new BadRequestException(
+        `Holiday cannot be deleted because it is used by ${attendanceRecordsCount} attendance record(s). Keep it inactive instead.`,
+      );
+    }
   }
 
   private async buildHolidayEntity(

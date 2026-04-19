@@ -30,6 +30,21 @@ This document explains each module in the current HR Management API and how each
 }
 ```
 
+## Soft-delete safety
+
+Delete endpoints use soft delete. Records are marked with `deletedAt` and are hidden from normal list/detail APIs.
+
+Important validation behavior:
+- company delete is blocked when branches or departments still exist under it
+- branch delete is blocked when employees, branch locations, branch networks, branch-department assignments, office locations, payroll runs, or notices still reference it
+- department delete is blocked when employees, child departments, branch-department assignments, holidays, payroll runs, or notices still reference it
+- office location delete is blocked when attendance records reference it
+- holiday delete is blocked when attendance records reference it through day resolution history
+- work schedule delete is blocked when employee schedule assignments reference it
+- leave type delete is blocked when leave balances or leave requests reference it
+
+When blocked, the API returns `400 Bad Request` with an `isSuccess: false` error body and a message explaining which related records must be reassigned, deleted, ended, or made inactive first.
+
 ## Auth module
 
 Purpose:
@@ -199,6 +214,80 @@ How it works:
 
 Use when:
 - a custom integration needs manual audit insertion
+
+## Countries module
+
+Purpose:
+- static country reference data for frontend country dropdowns, phone inputs, and address forms
+- includes ISO codes, dial codes, currency data, languages, region, subregion, capital, timezone, and flag emoji
+
+### `GET /countries`
+
+How it works:
+- returns the local static country list
+- supports optional query filters
+- does not write to the database
+
+Use when:
+- rendering country dropdowns
+- building phone number country-code selectors
+- populating address country fields
+
+Optional query parameters:
+- `search`: searches name, official name, ISO code, dial code, currency code, and language code
+- `region`: filters by exact region name such as `Asia`, `Europe`, `Africa`, `Americas`, or `Oceania`
+
+Example:
+
+```http
+GET /api/v1/countries?search=bangladesh
+```
+
+### `GET /countries/:code`
+
+How it works:
+- accepts ISO alpha-2 or alpha-3 country code
+- returns one country record
+- throws `404` when the code is unknown
+
+Examples:
+- `GET /api/v1/countries/BD`
+- `GET /api/v1/countries/BGD`
+
+Response item shape:
+
+```json
+{
+  "name": "Bangladesh",
+  "officialName": "People's Republic of Bangladesh",
+  "alpha2Code": "BD",
+  "alpha3Code": "BGD",
+  "numericCode": "050",
+  "dialCode": "+880",
+  "dialCodes": ["+880"],
+  "flag": "🇧🇩",
+  "region": "Asia",
+  "subregion": "Southern Asia",
+  "capital": "Dhaka",
+  "capitals": ["Dhaka"],
+  "currencyCodes": ["BDT"],
+  "currencies": [
+    {
+      "code": "BDT",
+      "name": "Bangladeshi taka",
+      "symbol": "৳"
+    }
+  ],
+  "languageCodes": ["ben"],
+  "languages": [
+    {
+      "code": "ben",
+      "name": "Bengali"
+    }
+  ],
+  "timezones": ["UTC+06:00"]
+}
+```
 
 ## Branches module
 

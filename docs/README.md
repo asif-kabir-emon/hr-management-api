@@ -7,6 +7,9 @@ This folder contains project documentation for the HR Management API.
 - [`api-reference.md`](./api-reference.md)
   Full module-by-module API reference. Explains the purpose of each module and what every exposed API does.
 
+- [`frontend-organization-guide.md`](./frontend-organization-guide.md)
+  Frontend implementation guide for company, branch, branch location, branch network/IP, and department setup.
+
 ## Quick Notes
 
 - Base API path: `/api/v1`
