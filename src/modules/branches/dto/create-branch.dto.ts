@@ -8,7 +8,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
-import { BranchStatus, BranchType } from '../entities/branch.entity';
+import { BranchStatus } from '../entities/branch.entity';
 
 export class CreateBranchDto {
   @ApiProperty()
@@ -34,10 +34,20 @@ export class CreateBranchDto {
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional({ enum: BranchType, default: BranchType.Office })
+  @ApiPropertyOptional({
+    description: 'Dynamic office/branch type ID from GET /office-types.',
+  })
   @IsOptional()
-  @IsEnum(BranchType)
-  branchType?: BranchType;
+  @IsUUID()
+  officeTypeId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Legacy branch type text. Prefer officeTypeId for new frontend implementation.',
+  })
+  @IsOptional()
+  @IsString()
+  branchType?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -293,6 +293,48 @@ Response item shape:
 
 Purpose:
 - branch master data
+- dynamic office/branch type master data
+
+### `GET /branches/office-types`
+
+How it works:
+- requires `branch:read`
+- returns active, non-deleted dynamic office types
+- use this API to populate branch type dropdowns
+
+### `GET /branches/office-types/:id`
+
+How it works:
+- requires `branch:read`
+- returns one office type by ID
+
+### `POST /branches/office-types`
+
+How it works:
+- requires `branch:create`
+- creates a dynamic office type such as head office, factory, warehouse, remote hub, or retail outlet
+- `companyId` is optional; if omitted, the office type is global
+
+Useful body fields:
+- `companyId`
+- `name`
+- `code`
+- `description`
+- `status`
+- `isDefault`
+
+### `PATCH /branches/office-types/:id`
+
+How it works:
+- requires `branch:update`
+- updates mutable office type fields
+
+### `DELETE /branches/office-types/:id`
+
+How it works:
+- requires `branch:delete`
+- soft-deletes the office type
+- blocked if any active branch still uses the type
 
 ### `GET /branches`
 
@@ -310,7 +352,7 @@ How it works:
 
 How it works:
 - requires `branch:create`
-- accepts branch details such as name, code, contact, and address
+- accepts branch details such as name, code, contact, address, and optional `officeTypeId`
 - creates a branch record
 
 ### `PATCH /branches/:id`

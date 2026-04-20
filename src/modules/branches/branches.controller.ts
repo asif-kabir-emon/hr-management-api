@@ -18,9 +18,11 @@ import { AssignBranchDepartmentDto } from "./dto/assign-branch-department.dto";
 import { CreateBranchLocationDto } from "./dto/create-branch-location.dto";
 import { CreateBranchNetworkDto } from "./dto/create-branch-network.dto";
 import { CreateBranchDto } from "./dto/create-branch.dto";
+import { CreateOfficeTypeDto } from "./dto/create-office-type.dto";
 import { UpdateBranchLocationDto } from "./dto/update-branch-location.dto";
 import { UpdateBranchNetworkDto } from "./dto/update-branch-network.dto";
 import { UpdateBranchDto } from "./dto/update-branch.dto";
+import { UpdateOfficeTypeDto } from "./dto/update-office-type.dto";
 
 @ApiTags("branches")
 @ApiBearerAuth()
@@ -32,34 +34,70 @@ import { UpdateBranchDto } from "./dto/update-branch.dto";
 export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
 
+  @Get("office-types")
+  @RequirePermissions(Permissions.BranchRead)
+  listOfficeTypes() {
+    return this.branchesService.listOfficeTypes();
+  }
+
+  @Get("office-types/:id")
+  @RequirePermissions(Permissions.BranchRead)
+  findOfficeType(@Param("id") id: string) {
+    return this.branchesService.findOfficeType(id);
+  }
+
+  @Post("office-types")
+  @RequirePermissions(Permissions.BranchCreate)
+  createOfficeType(@Body() createOfficeTypeDto: CreateOfficeTypeDto) {
+    return this.branchesService.createOfficeType(createOfficeTypeDto);
+  }
+
+  @Patch("office-types/:id")
+  @RequirePermissions(Permissions.BranchUpdate)
+  updateOfficeType(
+    @Param("id") id: string,
+    @Body() updateOfficeTypeDto: UpdateOfficeTypeDto,
+  ) {
+    return this.branchesService.updateOfficeType(id, updateOfficeTypeDto);
+  }
+
+  @Delete("office-types/:id")
+  @RequirePermissions(Permissions.BranchDelete)
+  removeOfficeType(@Param("id") id: string) {
+    return this.branchesService.removeOfficeType(id);
+  }
+
   @Get()
   @RequirePermissions(Permissions.BranchRead)
-  findAll() {
-    return this.branchesService.findAll();
+  listBranches() {
+    return this.branchesService.listBranches();
   }
 
   @Get(":id")
   @RequirePermissions(Permissions.BranchRead)
-  findOne(@Param("id") id: string) {
+  findBranch(@Param("id") id: string) {
     return this.branchesService.findBranch(id);
   }
 
   @Post()
   @RequirePermissions(Permissions.BranchCreate)
-  create(@Body() createBranchDto: CreateBranchDto) {
-    return this.branchesService.create(createBranchDto);
+  createBranch(@Body() createBranchDto: CreateBranchDto) {
+    return this.branchesService.createBranch(createBranchDto);
   }
 
   @Patch(":id")
   @RequirePermissions(Permissions.BranchUpdate)
-  update(@Param("id") id: string, @Body() updateBranchDto: UpdateBranchDto) {
-    return this.branchesService.update(id, updateBranchDto);
+  updateBranch(
+    @Param("id") id: string,
+    @Body() updateBranchDto: UpdateBranchDto,
+  ) {
+    return this.branchesService.updateBranch(id, updateBranchDto);
   }
 
   @Delete(":id")
   @RequirePermissions(Permissions.BranchDelete)
-  remove(@Param("id") id: string) {
-    return this.branchesService.remove(id);
+  removeBranch(@Param("id") id: string) {
+    return this.branchesService.removeBranch(id);
   }
 
   @Get(":id/locations")

@@ -12,6 +12,7 @@ import { BranchDepartment } from './entities/branch-department.entity';
 import { Branch } from './entities/branch.entity';
 import { BranchLocation } from './entities/branch-location.entity';
 import { BranchNetwork } from './entities/branch-network.entity';
+import { OfficeType } from './entities/office-type.entity';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { BranchNetwork } from './entities/branch-network.entity';
       BranchLocation,
       BranchNetwork,
       BranchDepartment,
+      OfficeType,
       Company,
       Department,
       Employee,

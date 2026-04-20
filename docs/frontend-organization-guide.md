@@ -84,14 +84,15 @@ Useful frontend fields:
 ## Recommended Frontend Flow
 
 1. Create or select a company.
-2. Create company departments.
-3. Create a branch under the company.
-4. Add one or more branch locations.
-5. Add one or more branch networks/IP rules.
-6. Assign departments to the branch.
-7. When creating employees later, use selected company, branch, and department IDs.
+2. Create or select office/branch types.
+3. Create company departments.
+4. Create a branch under the company.
+5. Add one or more branch locations.
+6. Add one or more branch networks/IP rules.
+7. Assign departments to the branch.
+8. When creating employees later, use selected company, branch, and department IDs.
 
-This order matters because branch and department creation now require `companyId`, and branch department assignment requires both `branchId` and `departmentId`.
+This order matters because branch and department creation now require `companyId`, branch creation can use `officeTypeId`, and branch department assignment requires both `branchId` and `departmentId`.
 
 ## Permissions Needed
 
@@ -111,6 +112,60 @@ Use these permission codes when showing or hiding frontend actions:
 | Create department | `department:create` |
 | Update department | `department:update` |
 | Delete department | `department:delete` |
+
+## Office Type APIs
+
+Office type is dynamic branch classification. Examples: Head Office, Factory, Warehouse, Remote Hub, Retail Outlet.
+
+### List Office Types
+
+`GET /branches/office-types`
+
+Use for:
+- branch type dropdown
+- admin setup screen
+
+### Create Office Type
+
+`POST /branches/office-types`
+
+Request body:
+
+```json
+{
+  "companyId": "company-uuid",
+  "name": "Head Office",
+  "code": "head_office",
+  "description": "Main administrative office",
+  "status": 1,
+  "isDefault": true
+}
+```
+
+Frontend validation:
+- `companyId` is optional. If empty, the type is global.
+- `name` is required.
+- `code` is required and should be lowercase snake case.
+- `status` can be `1` for active or `0` for inactive.
+
+### Update Office Type
+
+`PATCH /branches/office-types/:id`
+
+Request body can be partial:
+
+```json
+{
+  "name": "Main Office",
+  "status": 1
+}
+```
+
+### Delete Office Type
+
+`DELETE /branches/office-types/:id`
+
+Delete is soft delete and is blocked when any active branch still uses the office type.
 
 ## Company APIs
 
@@ -287,7 +342,7 @@ Request body:
   "code": "DHK-HQ",
   "email": "dhaka@acme.com",
   "phone": "+8801000000000",
-  "branchType": "office",
+  "officeTypeId": "office-type-uuid",
   "managerEmployeeId": "employee-uuid",
   "status": 1,
   "openedOn": "2026-04-19",
@@ -305,7 +360,8 @@ Request body:
 Frontend validation:
 - `companyId` is required.
 - `name` is required.
-- `branchType` options: `office`, `factory`, `warehouse`, `remote_hub`.
+- `officeTypeId` is optional but recommended. Load options from `GET /branches/office-types`.
+- `branchType` is legacy text and should not be used by new frontend screens.
 - `status` options: `1` active, `0` inactive, `2` closed.
 - `openedOn` and `closedOn` should be date strings: `YYYY-MM-DD`.
 - `managerEmployeeId` is optional and should be sent only after employee records exist.
@@ -320,7 +376,7 @@ Request body can be partial:
 {
   "name": "Dhaka Main Office",
   "status": 1,
-  "branchType": "office"
+  "officeTypeId": "office-type-uuid"
 }
 ```
 
@@ -611,7 +667,6 @@ Fields:
 ```ts
 type ActiveStatus = 0 | 1;
 type CompanyStatus = ActiveStatus;
-type BranchType = 'office' | 'factory' | 'warehouse' | 'remote_hub';
 type BranchStatus = 0 | 1 | 2;
 type DepartmentStatus = ActiveStatus;
 type BranchNetworkType =
@@ -649,7 +704,7 @@ const branch = await api.post('/branches', {
   companyId: company.data.data.id,
   name: 'Dhaka Head Office',
   code: 'DHK-HQ',
-  branchType: 'office',
+  officeTypeId: 'office-type-uuid',
   status: 1,
 });
 

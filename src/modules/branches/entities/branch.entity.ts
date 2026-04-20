@@ -14,13 +14,7 @@ import { Company } from "../../companies/entities/company.entity";
 import { BranchDepartment } from "./branch-department.entity";
 import { BranchLocation } from "./branch-location.entity";
 import { BranchNetwork } from "./branch-network.entity";
-
-export enum BranchType {
-  Office = "office",
-  Factory = "factory",
-  Warehouse = "warehouse",
-  RemoteHub = "remote_hub",
-}
+import { OfficeType } from "./office-type.entity";
 
 export enum BranchStatus {
   Inactive = 0,
@@ -50,12 +44,12 @@ export class Branch {
   @Column({ nullable: true })
   phone?: string;
 
-  @Column({
-    type: "enum",
-    enum: BranchType,
-    default: BranchType.Office,
-  })
-  branchType: BranchType;
+  @ManyToOne(() => OfficeType, { eager: true, nullable: true })
+  @JoinColumn({ name: "office_type_id" })
+  officeType?: OfficeType;
+
+  @Column({ nullable: true })
+  branchType?: string;
 
   @Column({ name: "manager_employee_id", nullable: true })
   managerEmployeeId?: string;

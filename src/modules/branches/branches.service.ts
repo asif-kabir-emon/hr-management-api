@@ -15,13 +15,16 @@ import { AssignBranchDepartmentDto } from "./dto/assign-branch-department.dto";
 import { CreateBranchLocationDto } from "./dto/create-branch-location.dto";
 import { CreateBranchNetworkDto } from "./dto/create-branch-network.dto";
 import { CreateBranchDto } from "./dto/create-branch.dto";
+import { CreateOfficeTypeDto } from "./dto/create-office-type.dto";
 import { UpdateBranchLocationDto } from "./dto/update-branch-location.dto";
 import { UpdateBranchNetworkDto } from "./dto/update-branch-network.dto";
 import { UpdateBranchDto } from "./dto/update-branch.dto";
+import { UpdateOfficeTypeDto } from "./dto/update-office-type.dto";
 import { BranchDepartment } from "./entities/branch-department.entity";
 import { Branch } from "./entities/branch.entity";
 import { BranchLocation } from "./entities/branch-location.entity";
 import { BranchNetwork } from "./entities/branch-network.entity";
+import { OfficeType } from "./entities/office-type.entity";
 
 @Injectable()
 export class BranchesService {
@@ -34,6 +37,8 @@ export class BranchesService {
     private readonly branchNetworkRepository: Repository<BranchNetwork>,
     @InjectRepository(BranchDepartment)
     private readonly branchDepartmentRepository: Repository<BranchDepartment>,
+    @InjectRepository(OfficeType)
+    private readonly officeTypeRepository: Repository<OfficeType>,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
     @InjectRepository(Department)
@@ -48,8 +53,8 @@ export class BranchesService {
     private readonly payrollRunRepository: Repository<PayrollRun>,
   ) {}
 
-  async create(createBranchDto: CreateBranchDto) {
-    const { companyId, ...branchPayload } = createBranchDto;
+  async createBranch(createBranchDto: CreateBranchDto) {
+    const { companyId, officeTypeId, ...branchPayload } = createBranchDto;
     const company = await this.companyRepository.findOne({
       where: { id: companyId },
     });
@@ -58,15 +63,24 @@ export class BranchesService {
       throw new NotFoundException("Company not found");
     }
 
+    const officeType = officeTypeId
+      ? await this.findActiveOfficeType(officeTypeId)
+      : undefined;
     const branch = this.branchRepository.create({
       ...branchPayload,
       company,
+      officeType,
+      branchType: officeType?.code ?? branchPayload.branchType,
     });
 
     return this.branchRepository.save(branch);
   }
 
-  findAll() {
+  create(createBranchDto: CreateBranchDto) {
+    return this.createBranch(createBranchDto);
+  }
+
+  listBranches() {
     return this.branchRepository.find({
       where: { isDeleted: false },
       relations: {
@@ -76,6 +90,10 @@ export class BranchesService {
       },
       order: { name: "ASC" },
     });
+  }
+
+  findAll() {
+    return this.listBranches();
   }
 
   async findBranch(id: string) {
@@ -95,7 +113,11 @@ export class BranchesService {
     return branch;
   }
 
-  async update(id: string, updateBranchDto: UpdateBranchDto) {
+  findOne(id: string) {
+    return this.findBranch(id);
+  }
+
+  async updateBranch(id: string, updateBranchDto: UpdateBranchDto) {
     const branch = await this.branchRepository.findOne({
       where: { id, isDeleted: false },
       relations: { company: true },
@@ -105,7 +127,7 @@ export class BranchesService {
       throw new NotFoundException("Branch not found");
     }
 
-    const { companyId, ...branchPayload } = updateBranchDto;
+    const { companyId, officeTypeId, ...branchPayload } = updateBranchDto;
 
     if (companyId) {
       const company = await this.companyRepository.findOne({
@@ -119,11 +141,116 @@ export class BranchesService {
       branch.company = company;
     }
 
+    if (officeTypeId) {
+      const officeType = await this.findActiveOfficeType(officeTypeId);
+      branch.officeType = officeType;
+      branch.branchType = officeType.code;
+    }
+
     Object.assign(branch, branchPayload);
     return this.branchRepository.save(branch);
   }
 
-  async remove(id: string) {
+  update(id: string, updateBranchDto: UpdateBranchDto) {
+    return this.updateBranch(id, updateBranchDto);
+  }
+
+  listOfficeTypes() {
+    return this.officeTypeRepository.find({
+      where: { isDeleted: false },
+      order: { isDefault: "DESC", name: "ASC" },
+    });
+  }
+
+  async findOfficeType(id: string) {
+    const officeType = await this.officeTypeRepository.findOne({
+      where: { id, isDeleted: false },
+    });
+
+    if (!officeType) {
+      throw new NotFoundException("Office type not found");
+    }
+
+    return officeType;
+  }
+
+  async createOfficeType(createOfficeTypeDto: CreateOfficeTypeDto) {
+    const { companyId, ...officeTypePayload } = createOfficeTypeDto;
+    const company = companyId ? await this.findActiveCompany(companyId) : undefined;
+    const officeType = this.officeTypeRepository.create({
+      ...officeTypePayload,
+      code: officeTypePayload.code.trim().toLowerCase(),
+      company,
+    });
+
+    return this.officeTypeRepository.save(officeType);
+  }
+
+  async updateOfficeType(id: string, updateOfficeTypeDto: UpdateOfficeTypeDto) {
+    const officeType = await this.findOfficeType(id);
+    const { companyId, ...officeTypePayload } = updateOfficeTypeDto;
+
+    if (companyId) {
+      officeType.company = await this.findActiveCompany(companyId);
+    }
+
+    Object.assign(officeType, {
+      ...officeTypePayload,
+      code: officeTypePayload.code
+        ? officeTypePayload.code.trim().toLowerCase()
+        : officeType.code,
+    });
+
+    return this.officeTypeRepository.save(officeType);
+  }
+
+  async removeOfficeType(id: string) {
+    const officeType = await this.findOfficeType(id);
+    const branchesCount = await this.branchRepository.count({
+      where: { officeType: { id: officeType.id }, isDeleted: false },
+    });
+
+    if (branchesCount > 0) {
+      throw new BadRequestException(
+        `Office type cannot be deleted because it is used by ${branchesCount} branch${branchesCount !== 1 ? "es" : ""}. Reassign branches first.`,
+      );
+    }
+
+    await this.officeTypeRepository.update(officeType.id, {
+      isDeleted: true,
+      deletedAt: new Date(),
+    });
+
+    return {
+      message: "Office type deleted successfully",
+    };
+  }
+
+  private async findActiveOfficeType(id: string) {
+    const officeType = await this.officeTypeRepository.findOne({
+      where: { id, isDeleted: false },
+    });
+
+    if (!officeType) {
+      throw new NotFoundException("Office type not found");
+    }
+
+    return officeType;
+  }
+
+  private async findActiveCompany(id: string) {
+    const company = await this.companyRepository.findOne({
+      where: { id, isDeleted: false },
+    });
+
+    if (!company) {
+      throw new NotFoundException("Company not found");
+    }
+
+    return company;
+  }
+
+  async removeBranch(id: string) {
     const branch = await this.findBranch(id);
     await this.assertBranchCanBeDeleted(branch.id);
     await this.branchRepository.update(branch.id, {
@@ -134,6 +261,10 @@ export class BranchesService {
     return {
       message: "Branch deleted successfully",
     };
+  }
+
+  remove(id: string) {
+    return this.removeBranch(id);
   }
 
   private async assertBranchCanBeDeleted(branchId: string) {
