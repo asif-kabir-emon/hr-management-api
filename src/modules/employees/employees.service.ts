@@ -1,27 +1,31 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { BranchesService } from '../branches/branches.service';
-import { DepartmentsService } from '../departments/departments.service';
-import { CreateEmployeeDto } from './dto/create-employee.dto';
-import { EmployeeEmploymentEventDto } from './dto/employee-employment-event.dto';
-import { TransferEmployeeBranchDto } from './dto/transfer-employee-branch.dto';
-import { TransferEmployeeDepartmentDto } from './dto/transfer-employee-department.dto';
-import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { BranchesService } from "../branches/branches.service";
+import { DepartmentsService } from "../departments/departments.service";
+import { CreateEmployeeDto } from "./dto/create-employee.dto";
+import { EmployeeEmploymentEventDto } from "./dto/employee-employment-event.dto";
+import { TransferEmployeeBranchDto } from "./dto/transfer-employee-branch.dto";
+import { TransferEmployeeDepartmentDto } from "./dto/transfer-employee-department.dto";
+import { UpdateEmployeeDto } from "./dto/update-employee.dto";
 import {
   EmployeeBranchChangeType,
   EmployeeBranchHistory,
-} from './entities/employee-branch-history.entity';
+} from "./entities/employee-branch-history.entity";
 import {
   EmployeeDepartmentChangeType,
   EmployeeDepartmentHistory,
-} from './entities/employee-department-history.entity';
+} from "./entities/employee-department-history.entity";
 import {
   EmployeeEmploymentEventType,
   EmployeeEmploymentHistory,
-} from './entities/employee-employment-history.entity';
-import { Employee } from './entities/employee.entity';
-import { EmploymentStatus } from './entities/employee.entity';
+} from "./entities/employee-employment-history.entity";
+import { Employee } from "./entities/employee.entity";
+import { EmploymentStatus } from "./entities/employee.entity";
 
 @Injectable()
 export class EmployeesService {
@@ -58,10 +62,13 @@ export class EmployeesService {
       addressInformation: createEmployeeDto.addressInformation ?? {},
       joiningInformation: {
         originalJoinDate:
-          createEmployeeDto.joiningInformation?.originalJoinDate ?? initialJoinDate,
+          createEmployeeDto.joiningInformation?.originalJoinDate ??
+          initialJoinDate,
         currentJoinDate: initialJoinDate,
-        confirmationDate: createEmployeeDto.joiningInformation?.confirmationDate,
-        probationEndDate: createEmployeeDto.joiningInformation?.probationEndDate,
+        confirmationDate:
+          createEmployeeDto.joiningInformation?.confirmationDate,
+        probationEndDate:
+          createEmployeeDto.joiningInformation?.probationEndDate,
         lastWorkingDate: createEmployeeDto.joiningInformation?.lastWorkingDate,
         resignationDate: createEmployeeDto.joiningInformation?.resignationDate,
         employmentType: createEmployeeDto.joiningInformation?.employmentType,
@@ -77,7 +84,9 @@ export class EmployeesService {
     }
 
     if (createEmployeeDto.branchId) {
-      employee.branch = await this.branchesService.findOne(createEmployeeDto.branchId);
+      employee.branch = await this.branchesService.findBranch(
+        createEmployeeDto.branchId,
+      );
     }
 
     const savedEmployee = await this.employeeRepository.save(employee);
@@ -89,7 +98,7 @@ export class EmployeesService {
           toDepartment: savedEmployee.department,
           changeType: EmployeeDepartmentChangeType.Assigned,
           effectiveDate: initialJoinDate,
-          reason: 'Initial department assignment',
+          reason: "Initial department assignment",
         }),
       );
     }
@@ -101,7 +110,7 @@ export class EmployeesService {
           toBranch: savedEmployee.branch,
           changeType: EmployeeBranchChangeType.Assigned,
           effectiveDate: initialJoinDate,
-          reason: 'Initial branch assignment',
+          reason: "Initial branch assignment",
         }),
       );
     }
@@ -112,7 +121,7 @@ export class EmployeesService {
         eventType: EmployeeEmploymentEventType.Joined,
         effectiveDate: initialJoinDate,
         employmentStatus: savedEmployee.status ?? EmploymentStatus.Active,
-        notes: 'Initial employee onboarding',
+        notes: "Initial employee onboarding",
       }),
     );
 
@@ -121,7 +130,7 @@ export class EmployeesService {
 
   findAll() {
     return this.employeeRepository.find({
-      order: { createdAt: 'DESC' },
+      order: { createdAt: "DESC" },
     });
   }
 
@@ -131,7 +140,7 @@ export class EmployeesService {
     });
 
     if (!employee) {
-      throw new NotFoundException('Employee not found');
+      throw new NotFoundException("Employee not found");
     }
 
     return employee;
@@ -182,7 +191,7 @@ export class EmployeesService {
 
     if (updateEmployeeDto.branchId !== undefined) {
       employee.branch = updateEmployeeDto.branchId
-        ? await this.branchesService.findOne(updateEmployeeDto.branchId)
+        ? await this.branchesService.findBranch(updateEmployeeDto.branchId)
         : undefined;
     }
 
@@ -206,7 +215,7 @@ export class EmployeesService {
             updatedEmployee.joiningInformation?.currentJoinDate ??
             updatedEmployee.joinDate ??
             new Date().toISOString().slice(0, 10),
-          reason: 'Department updated from employee profile',
+          reason: "Department updated from employee profile",
         }),
       );
     }
@@ -219,7 +228,7 @@ export class EmployeesService {
         this.employeeBranchHistoryRepository.create({
           employee: updatedEmployee,
           fromBranch: previousBranchId
-            ? await this.branchesService.findOne(previousBranchId)
+            ? await this.branchesService.findBranch(previousBranchId)
             : undefined,
           toBranch: updatedEmployee.branch,
           changeType: updatedEmployee.branch
@@ -229,7 +238,7 @@ export class EmployeesService {
             updatedEmployee.joiningInformation?.currentJoinDate ??
             updatedEmployee.joinDate ??
             new Date().toISOString().slice(0, 10),
-          reason: 'Branch updated from employee profile',
+          reason: "Branch updated from employee profile",
         }),
       );
     }
@@ -244,11 +253,13 @@ export class EmployeesService {
     const employee = await this.findOne(id);
     const fromDepartment = employee.department;
     const toDepartment = transferEmployeeDepartmentDto.departmentId
-      ? await this.departmentsService.findOne(transferEmployeeDepartmentDto.departmentId)
+      ? await this.departmentsService.findOne(
+          transferEmployeeDepartmentDto.departmentId,
+        )
       : undefined;
 
     if (fromDepartment?.id === toDepartment?.id) {
-      throw new BadRequestException('Employee is already in this department');
+      throw new BadRequestException("Employee is already in this department");
     }
 
     employee.department = toDepartment;
@@ -272,15 +283,20 @@ export class EmployeesService {
     return updatedEmployee;
   }
 
-  async transferBranch(id: string, transferEmployeeBranchDto: TransferEmployeeBranchDto) {
+  async transferBranch(
+    id: string,
+    transferEmployeeBranchDto: TransferEmployeeBranchDto,
+  ) {
     const employee = await this.findOne(id);
     const fromBranch = employee.branch;
     const toBranch = transferEmployeeBranchDto.branchId
-      ? await this.branchesService.findOne(transferEmployeeBranchDto.branchId)
+      ? await this.branchesService.findBranch(
+          transferEmployeeBranchDto.branchId,
+        )
       : undefined;
 
     if (fromBranch?.id === toBranch?.id) {
-      throw new BadRequestException('Employee is already in this branch');
+      throw new BadRequestException("Employee is already in this branch");
     }
 
     employee.branch = toBranch;
@@ -304,33 +320,52 @@ export class EmployeesService {
     return updatedEmployee;
   }
 
-  async recordEmploymentEvent(id: string, employeeEmploymentEventDto: EmployeeEmploymentEventDto) {
+  async recordEmploymentEvent(
+    id: string,
+    employeeEmploymentEventDto: EmployeeEmploymentEventDto,
+  ) {
     const employee = await this.findOne(id);
     const joiningInformation = {
       ...(employee.joiningInformation ?? {}),
     };
 
-    if (employeeEmploymentEventDto.eventType === EmployeeEmploymentEventType.Resigned) {
+    if (
+      employeeEmploymentEventDto.eventType ===
+      EmployeeEmploymentEventType.Resigned
+    ) {
       employee.status = EmploymentStatus.Resigned;
-      joiningInformation.resignationDate = employeeEmploymentEventDto.effectiveDate;
+      joiningInformation.resignationDate =
+        employeeEmploymentEventDto.effectiveDate;
       joiningInformation.lastWorkingDate =
-        employeeEmploymentEventDto.lastWorkingDate ?? employeeEmploymentEventDto.effectiveDate;
-    } else if (employeeEmploymentEventDto.eventType === EmployeeEmploymentEventType.Terminated) {
+        employeeEmploymentEventDto.lastWorkingDate ??
+        employeeEmploymentEventDto.effectiveDate;
+    } else if (
+      employeeEmploymentEventDto.eventType ===
+      EmployeeEmploymentEventType.Terminated
+    ) {
       employee.status = EmploymentStatus.Terminated;
       joiningInformation.lastWorkingDate =
-        employeeEmploymentEventDto.lastWorkingDate ?? employeeEmploymentEventDto.effectiveDate;
-    } else if (employeeEmploymentEventDto.eventType === EmployeeEmploymentEventType.Rejoined) {
+        employeeEmploymentEventDto.lastWorkingDate ??
+        employeeEmploymentEventDto.effectiveDate;
+    } else if (
+      employeeEmploymentEventDto.eventType ===
+      EmployeeEmploymentEventType.Rejoined
+    ) {
       employee.status = EmploymentStatus.Active;
-      joiningInformation.currentJoinDate = employeeEmploymentEventDto.effectiveDate;
-      joiningInformation.rejoinCount = (joiningInformation.rejoinCount ?? 0) + 1;
+      joiningInformation.currentJoinDate =
+        employeeEmploymentEventDto.effectiveDate;
+      joiningInformation.rejoinCount =
+        (joiningInformation.rejoinCount ?? 0) + 1;
       joiningInformation.resignationDate = undefined;
       joiningInformation.lastWorkingDate = undefined;
       employee.joinDate = employeeEmploymentEventDto.effectiveDate;
     } else {
       employee.status = EmploymentStatus.Active;
-      joiningInformation.currentJoinDate = employeeEmploymentEventDto.effectiveDate;
+      joiningInformation.currentJoinDate =
+        employeeEmploymentEventDto.effectiveDate;
       joiningInformation.originalJoinDate =
-        joiningInformation.originalJoinDate ?? employeeEmploymentEventDto.effectiveDate;
+        joiningInformation.originalJoinDate ??
+        employeeEmploymentEventDto.effectiveDate;
       employee.joinDate = employeeEmploymentEventDto.effectiveDate;
     }
 
@@ -356,7 +391,7 @@ export class EmployeesService {
       where: {
         employee: { id: employeeId },
       },
-      order: { effectiveDate: 'DESC', createdAt: 'DESC' },
+      order: { effectiveDate: "DESC", createdAt: "DESC" },
     });
   }
 
@@ -365,7 +400,7 @@ export class EmployeesService {
       where: {
         employee: { id: employeeId },
       },
-      order: { effectiveDate: 'DESC', createdAt: 'DESC' },
+      order: { effectiveDate: "DESC", createdAt: "DESC" },
     });
   }
 
@@ -374,7 +409,7 @@ export class EmployeesService {
       where: {
         employee: { id: employeeId },
       },
-      order: { effectiveDate: 'DESC', createdAt: 'DESC' },
+      order: { effectiveDate: "DESC", createdAt: "DESC" },
     });
   }
 }

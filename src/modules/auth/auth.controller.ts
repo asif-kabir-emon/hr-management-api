@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -10,6 +11,7 @@ import {
   Res,
   UseGuards,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   ApiBearerAuth,
   ApiBody,
@@ -30,6 +32,7 @@ import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { SwaggerLoginDto } from "./dto/swagger-login.dto";
 import { UpdateUserAccessDto } from "./dto/update-user-access.dto";
 import { AuthService } from "./auth.service";
 import { CurrentUser } from "./interfaces/current-user.interface";
@@ -40,55 +43,63 @@ import { CurrentUser } from "./interfaces/current-user.interface";
   version: "1",
 })
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get("swagger-access/login")
   showSwaggerLoginPage(
     @Query("returnTo") returnTo: string | undefined,
     @Query("error") error: string | undefined,
+    @Req() request: Request,
     @Res() response: Response,
   ) {
-    const normalizedReturnTo = returnTo?.trim() || "/api/docs";
-    const errorMessage = error ? decodeURIComponent(error) : "";
+    const normalizedReturnTo = this.normalizeSwaggerReturnTo(returnTo);
+    const errorMessage = error ? this.escapeHtml(error) : "";
+    const swaggerLoginUrl = this.getLocalSafeUrl(
+      request,
+      this.getSwaggerLoginPath(),
+    );
 
     return response.type("html").send(`<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Swagger Login</title>
-    <style>
-      body { font-family: Arial, sans-serif; background: #f4f6f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-      .card { width: 100%; max-width: 420px; background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
-      h1 { margin: 0 0 8px; font-size: 24px; }
-      p { margin: 0 0 20px; color: #555; }
-      label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #222; }
-      input { width: 100%; box-sizing: border-box; margin-bottom: 16px; padding: 12px; border: 1px solid #d0d7de; border-radius: 8px; font-size: 14px; }
-      button { width: 100%; padding: 12px; border: none; border-radius: 8px; background: #111827; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
-      .error { margin-bottom: 16px; padding: 12px; background: #fef2f2; color: #b91c1c; border-radius: 8px; font-size: 14px; }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <h1>Swagger Access</h1>
-      <p>Sign in with your HR system account to open the API documentation.</p>
-      ${errorMessage ? `<div class="error">${errorMessage}</div>` : ""}
-      <form method="post" action="/api/v1/auth/swagger-access/login">
-        <input type="hidden" name="returnTo" value="${this.escapeHtml(normalizedReturnTo)}" />
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" required />
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" required />
-        <button type="submit">Open Swagger</button>
-      </form>
-    </div>
-  </body>
-</html>`);
+      <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>Swagger Login</title>
+          <style>
+            body { font-family: Arial, sans-serif; background: #f4f6f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+            .card { width: 100%; max-width: 420px; background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
+            h1 { margin: 0 0 8px; font-size: 24px; }
+            p { margin: 0 0 20px; color: #555; }
+            label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #222; }
+            input { width: 100%; box-sizing: border-box; margin-bottom: 16px; padding: 12px; border: 1px solid #d0d7de; border-radius: 8px; font-size: 14px; }
+            button { width: 100%; padding: 12px; border: none; border-radius: 8px; background: #111827; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+            .error { margin-bottom: 16px; padding: 12px; background: #fef2f2; color: #b91c1c; border-radius: 8px; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>Swagger Access</h1>
+            <p>Sign in with your HR system account to open the API documentation.</p>
+            ${errorMessage ? `<div class="error">${errorMessage}</div>` : ""}
+            <form method="post" action="${swaggerLoginUrl}">
+              <input type="hidden" name="returnTo" value="${this.escapeHtml(normalizedReturnTo)}" />
+              <label for="email">Email</label>
+              <input id="email" name="email" type="email" required />
+              <label for="password">Password</label>
+              <input id="password" name="password" type="password" required />
+              <button type="submit">Open Swagger</button>
+            </form>
+          </div>
+        </body>
+      </html>`);
   }
 
   @Post("swagger-access/login")
   async loginForSwagger(
-    @Body() loginDto: LoginDto & { returnTo?: string },
+    @Body() loginDto: SwaggerLoginDto,
     @Req() request: Request,
     @Res() response: Response,
   ) {
@@ -101,40 +112,57 @@ export class AuthController {
         ip ?? undefined,
         deviceInfo,
       );
+
       const canReadDocs =
         authResponse.user.permissions.includes(Permissions.All) ||
         authResponse.user.permissions.includes(Permissions.DocsRead) ||
         authResponse.user.permissions.includes(Permissions.UserManage);
 
       if (!canReadDocs) {
-        return response.redirect(
-          `/api/v1/auth/swagger-access/login?error=${encodeURIComponent(
-            "You do not have permission to access Swagger docs",
-          )}&returnTo=${encodeURIComponent(loginDto.returnTo || "/api/docs")}`,
+        throw new ForbiddenException(
+          "Your account does not have permission to access Swagger docs",
         );
       }
 
       response.cookie("swagger_access_token", authResponse.accessToken, {
         httpOnly: true,
         sameSite: "lax",
-        secure: false,
-        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        path: `/${this.getApiPrefix()}`,
       });
 
-      return response.redirect(loginDto.returnTo || "/api/docs");
-    } catch (error) {
       return response.redirect(
-        `/api/v1/auth/swagger-access/login?error=${encodeURIComponent(
-          "Invalid credentials",
-        )}&returnTo=${encodeURIComponent(loginDto.returnTo || "/api/docs")}`,
+        this.getLocalSafeUrl(
+          request,
+          this.normalizeSwaggerReturnTo(loginDto.returnTo),
+        ),
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof ForbiddenException
+          ? error.message
+          : "Invalid credentials";
+
+      return response.redirect(
+        this.getLocalSafeUrl(
+          request,
+          `${this.getSwaggerLoginPath()}?error=${encodeURIComponent(
+            errorMessage,
+          )}`,
+        ),
       );
     }
   }
 
   @Post("swagger-access/logout")
-  logoutFromSwagger(@Res() response: Response) {
+  logoutFromSwagger(@Req() request: Request, @Res() response: Response) {
+    response.clearCookie("swagger_access_token", {
+      path: `/${this.getApiPrefix()}`,
+    });
     response.clearCookie("swagger_access_token", { path: "/" });
-    return response.redirect("/api/v1/auth/swagger-access/login");
+    return response.redirect(
+      this.getLocalSafeUrl(request, this.getSwaggerLoginPath()),
+    );
   }
 
   @Get("access-control/permissions")
@@ -393,5 +421,45 @@ export class AuthController {
       .replace(/"/g, "&quot;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
+  }
+
+  private normalizeSwaggerReturnTo(returnTo?: string) {
+    const trimmedReturnTo = returnTo?.trim();
+
+    if (!trimmedReturnTo || !trimmedReturnTo.startsWith("/")) {
+      return this.getSwaggerDocsPath();
+    }
+
+    if (trimmedReturnTo.startsWith("//")) {
+      return this.getSwaggerDocsPath();
+    }
+
+    return trimmedReturnTo;
+  }
+
+  private getApiPrefix() {
+    return this.configService.get<string>("app.apiPrefix", "api");
+  }
+
+  private getSwaggerDocsPath() {
+    return `/${this.getApiPrefix()}/docs`;
+  }
+
+  private getSwaggerLoginPath() {
+    return `/${this.getApiPrefix()}/v1/auth/swagger-access/login`;
+  }
+
+  private getLocalSafeUrl(request: Request, path: string) {
+    const host = request.headers.host;
+
+    if (
+      host?.startsWith("localhost") ||
+      host?.startsWith("127.0.0.1") ||
+      host?.startsWith("[::1]")
+    ) {
+      return `http://${host}${path}`;
+    }
+
+    return path;
   }
 }

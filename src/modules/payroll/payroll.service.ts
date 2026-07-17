@@ -2,19 +2,22 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { CurrentUser } from '../auth/interfaces/current-user.interface';
-import { BranchesService } from '../branches/branches.service';
-import { DepartmentsService } from '../departments/departments.service';
-import { Employee, EmploymentStatus } from '../employees/entities/employee.entity';
-import { WorkflowsService } from '../workflows/workflows.service';
-import { CreatePayrollRunDto } from './dto/create-payroll-run.dto';
-import { ListPayrollRunsDto } from './dto/list-payroll-runs.dto';
-import { UpdatePayrollItemDto } from './dto/update-payroll-item.dto';
-import { PayrollItem } from './entities/payroll-item.entity';
-import { PayrollRun, PayrollRunStatus } from './entities/payroll-run.entity';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { CurrentUser } from "../auth/interfaces/current-user.interface";
+import { BranchesService } from "../branches/branches.service";
+import { DepartmentsService } from "../departments/departments.service";
+import {
+  Employee,
+  EmploymentStatus,
+} from "../employees/entities/employee.entity";
+import { WorkflowsService } from "../workflows/workflows.service";
+import { CreatePayrollRunDto } from "./dto/create-payroll-run.dto";
+import { ListPayrollRunsDto } from "./dto/list-payroll-runs.dto";
+import { UpdatePayrollItemDto } from "./dto/update-payroll-item.dto";
+import { PayrollItem } from "./entities/payroll-item.entity";
+import { PayrollRun, PayrollRunStatus } from "./entities/payroll-run.entity";
 
 @Injectable()
 export class PayrollService {
@@ -52,7 +55,7 @@ export class PayrollService {
     });
 
     if (createPayrollRunDto.branchId) {
-      payrollRun.branch = await this.branchesService.findOne(
+      payrollRun.branch = await this.branchesService.findBranch(
         createPayrollRunDto.branchId,
       );
     }
@@ -68,7 +71,7 @@ export class PayrollService {
 
     if (employees.length === 0) {
       throw new BadRequestException(
-        'No eligible employees found for the selected payroll filters',
+        "No eligible employees found for the selected payroll filters",
       );
     }
 
@@ -86,8 +89,8 @@ export class PayrollService {
           baseSalary,
           allowanceAmount,
           currency:
-            createPayrollRunDto.currency
-            ?? employee.salaryInformation?.currency,
+            createPayrollRunDto.currency ??
+            employee.salaryInformation?.currency,
           payFrequency: employee.salaryInformation?.payFrequency,
           branchName: employee.branch?.name,
           departmentName: employee.department?.name,
@@ -110,43 +113,43 @@ export class PayrollService {
 
   findPayrollRuns(listPayrollRunsDto: ListPayrollRunsDto) {
     const query = this.payrollRunRepository
-      .createQueryBuilder('payrollRun')
-      .leftJoinAndSelect('payrollRun.branch', 'branch')
-      .leftJoinAndSelect('payrollRun.department', 'department')
-      .orderBy('payrollRun.createdAt', 'DESC');
+      .createQueryBuilder("payrollRun")
+      .leftJoinAndSelect("payrollRun.branch", "branch")
+      .leftJoinAndSelect("payrollRun.department", "department")
+      .orderBy("payrollRun.createdAt", "DESC");
 
     if (listPayrollRunsDto.branchId) {
-      query.andWhere('branch.id = :branchId', {
+      query.andWhere("branch.id = :branchId", {
         branchId: listPayrollRunsDto.branchId,
       });
     }
 
     if (listPayrollRunsDto.departmentId) {
-      query.andWhere('department.id = :departmentId', {
+      query.andWhere("department.id = :departmentId", {
         departmentId: listPayrollRunsDto.departmentId,
       });
     }
 
     if (listPayrollRunsDto.status) {
-      query.andWhere('payrollRun.status = :status', {
+      query.andWhere("payrollRun.status = :status", {
         status: listPayrollRunsDto.status,
       });
     }
 
     if (listPayrollRunsDto.startDate) {
-      query.andWhere('payrollRun.periodEnd >= :startDate', {
+      query.andWhere("payrollRun.periodEnd >= :startDate", {
         startDate: listPayrollRunsDto.startDate,
       });
     }
 
     if (listPayrollRunsDto.endDate) {
-      query.andWhere('payrollRun.periodStart <= :endDate', {
+      query.andWhere("payrollRun.periodStart <= :endDate", {
         endDate: listPayrollRunsDto.endDate,
       });
     }
 
     if (listPayrollRunsDto.search) {
-      query.andWhere('LOWER(payrollRun.name) LIKE LOWER(:search)', {
+      query.andWhere("LOWER(payrollRun.name) LIKE LOWER(:search)", {
         search: `%${listPayrollRunsDto.search}%`,
       });
     }
@@ -160,14 +163,14 @@ export class PayrollService {
     });
 
     if (!payrollRun) {
-      throw new NotFoundException('Payroll run not found');
+      throw new NotFoundException("Payroll run not found");
     }
 
     const items = await this.payrollItemRepository.find({
       where: { payrollRun: { id } },
       order: {
         employee: {
-          fullName: 'ASC',
+          fullName: "ASC",
         },
       },
     });
@@ -192,18 +195,19 @@ export class PayrollService {
     });
 
     if (!payrollItem) {
-      throw new NotFoundException('Payroll item not found');
+      throw new NotFoundException("Payroll item not found");
     }
 
     payrollItem.bonusAmount =
       updatePayrollItemDto.bonusAmount ?? Number(payrollItem.bonusAmount);
     payrollItem.deductionAmount =
-      updatePayrollItemDto.deductionAmount ?? Number(payrollItem.deductionAmount);
+      updatePayrollItemDto.deductionAmount ??
+      Number(payrollItem.deductionAmount);
     payrollItem.remarks = updatePayrollItemDto.remarks ?? payrollItem.remarks;
     payrollItem.netAmount =
-      Number(payrollItem.grossAmount)
-      + Number(payrollItem.bonusAmount)
-      - Number(payrollItem.deductionAmount);
+      Number(payrollItem.grossAmount) +
+      Number(payrollItem.bonusAmount) -
+      Number(payrollItem.deductionAmount);
 
     await this.payrollItemRepository.save(payrollItem);
     await this.recalculatePayrollRunTotals(payrollRun.id);
@@ -218,13 +222,13 @@ export class PayrollService {
     });
 
     if (payrollItems.length === 0) {
-      throw new BadRequestException('Payroll run has no items to submit');
+      throw new BadRequestException("Payroll run has no items to submit");
     }
 
     await this.workflowsService.ensureDefaultPayrollApprovalDefinition();
     const workflowInstance = await this.workflowsService.startInstance({
-      definitionCode: 'payroll-approval',
-      referenceType: 'payroll_run',
+      definitionCode: "payroll-approval",
+      referenceType: "payroll_run",
       referenceId: payrollRun.id,
       requestedByUserId: currentUser.id ?? currentUser.sub,
       requestedByEmail: currentUser.email,
@@ -240,26 +244,26 @@ export class PayrollService {
 
   private async findEmployeesForPayrollRun(payrollRun: PayrollRun) {
     const query = this.employeeRepository
-      .createQueryBuilder('employee')
-      .leftJoinAndSelect('employee.branch', 'branch')
-      .leftJoinAndSelect('employee.department', 'department')
-      .where('employee.status IN (:...statuses)', {
+      .createQueryBuilder("employee")
+      .leftJoinAndSelect("employee.branch", "branch")
+      .leftJoinAndSelect("employee.department", "department")
+      .where("employee.status IN (:...statuses)", {
         statuses: [
           EmploymentStatus.Active,
           EmploymentStatus.Probation,
           EmploymentStatus.OnLeave,
         ],
       })
-      .orderBy('employee.fullName', 'ASC');
+      .orderBy("employee.fullName", "ASC");
 
     if (payrollRun.branch?.id) {
-      query.andWhere('branch.id = :branchId', {
+      query.andWhere("branch.id = :branchId", {
         branchId: payrollRun.branch.id,
       });
     }
 
     if (payrollRun.department?.id) {
-      query.andWhere('department.id = :departmentId', {
+      query.andWhere("department.id = :departmentId", {
         departmentId: payrollRun.department.id,
       });
     }
@@ -273,11 +277,11 @@ export class PayrollService {
     });
 
     if (!payrollRun) {
-      throw new NotFoundException('Payroll run not found');
+      throw new NotFoundException("Payroll run not found");
     }
 
     if (payrollRun.status !== PayrollRunStatus.Draft) {
-      throw new BadRequestException('Only draft payroll runs can be modified');
+      throw new BadRequestException("Only draft payroll runs can be modified");
     }
 
     return payrollRun;
@@ -289,7 +293,7 @@ export class PayrollService {
     });
 
     if (!payrollRun) {
-      throw new NotFoundException('Payroll run not found');
+      throw new NotFoundException("Payroll run not found");
     }
 
     const payrollItems = await this.payrollItemRepository.find({
@@ -322,7 +326,9 @@ export class PayrollService {
     const endDate = new Date(`${periodEnd}T00:00:00.000Z`);
 
     if (endDate.getTime() < startDate.getTime()) {
-      throw new BadRequestException('periodEnd must be on or after periodStart');
+      throw new BadRequestException(
+        "periodEnd must be on or after periodStart",
+      );
     }
   }
 }

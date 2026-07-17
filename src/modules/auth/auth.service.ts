@@ -870,16 +870,19 @@ export class AuthService {
       this.loginAttemptHistoryRepository
         .createQueryBuilder("history")
         .where("history.email = :email", { email })
+        .andWhere("history.isSuccessful = false")
         .andWhere("history.createdAt >= :lastMinute", { lastMinute })
         .getCount(),
       this.loginAttemptHistoryRepository
         .createQueryBuilder("history")
         .where("history.email = :email", { email })
+        .andWhere("history.isSuccessful = false")
         .andWhere("history.createdAt >= :lastHour", { lastHour })
         .getCount(),
       this.loginAttemptHistoryRepository
         .createQueryBuilder("history")
         .where("history.email = :email", { email })
+        .andWhere("history.isSuccessful = false")
         .andWhere("history.createdAt >= :lastDay", { lastDay })
         .getCount(),
     ]);

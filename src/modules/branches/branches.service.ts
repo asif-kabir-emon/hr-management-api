@@ -66,6 +66,15 @@ export class BranchesService {
     const officeType = officeTypeId
       ? await this.findActiveOfficeType(officeTypeId)
       : undefined;
+
+    if (officeTypeId && officeType) {
+      if (officeType.company && officeType.company.id !== company.id) {
+        throw new BadRequestException(
+          "Office type does not belong to the specified company",
+        );
+      }
+    }
+
     const branch = this.branchRepository.create({
       ...branchPayload,
       company,
@@ -74,10 +83,6 @@ export class BranchesService {
     });
 
     return this.branchRepository.save(branch);
-  }
-
-  create(createBranchDto: CreateBranchDto) {
-    return this.createBranch(createBranchDto);
   }
 
   listBranches() {
@@ -90,10 +95,6 @@ export class BranchesService {
       },
       order: { name: "ASC" },
     });
-  }
-
-  findAll() {
-    return this.listBranches();
   }
 
   async findBranch(id: string) {
@@ -111,10 +112,6 @@ export class BranchesService {
     }
 
     return branch;
-  }
-
-  findOne(id: string) {
-    return this.findBranch(id);
   }
 
   async updateBranch(id: string, updateBranchDto: UpdateBranchDto) {
@@ -151,10 +148,6 @@ export class BranchesService {
     return this.branchRepository.save(branch);
   }
 
-  update(id: string, updateBranchDto: UpdateBranchDto) {
-    return this.updateBranch(id, updateBranchDto);
-  }
-
   listOfficeTypes() {
     return this.officeTypeRepository.find({
       where: { isDeleted: false },
@@ -176,7 +169,9 @@ export class BranchesService {
 
   async createOfficeType(createOfficeTypeDto: CreateOfficeTypeDto) {
     const { companyId, ...officeTypePayload } = createOfficeTypeDto;
-    const company = companyId ? await this.findActiveCompany(companyId) : undefined;
+    const company = companyId
+      ? await this.findActiveCompany(companyId)
+      : undefined;
     const officeType = this.officeTypeRepository.create({
       ...officeTypePayload,
       code: officeTypePayload.code.trim().toLowerCase(),
@@ -196,6 +191,9 @@ export class BranchesService {
 
     Object.assign(officeType, {
       ...officeTypePayload,
+      // if pass companyId as null or empty string, it will be removed in company
+      company:
+        companyId === null || companyId === "" ? null : officeType.company,
       code: officeTypePayload.code
         ? officeTypePayload.code.trim().toLowerCase()
         : officeType.code,
@@ -226,9 +224,12 @@ export class BranchesService {
     };
   }
 
-  private async findActiveOfficeType(id: string) {
+  private async findActiveOfficeType(identifier: string) {
     const officeType = await this.officeTypeRepository.findOne({
-      where: { id, isDeleted: false },
+      where: [
+        { id: identifier, isDeleted: false },
+        { code: identifier, isDeleted: false },
+      ],
     });
 
     if (!officeType) {
